@@ -136,3 +136,4 @@ D:\DotNetCore\BookStoreDotNetApi\BookStoreDotNetApi\bin\Debug\net5.0\runtimes\wi
 D:\DotNetCore\BookStoreDotNetApi\BookStoreDotNetApi\bin\Debug\net5.0\Microsoft.AspNetCore.JsonPatch.dll
 D:\DotNetCore\BookStoreDotNetApi\BookStoreDotNetApi\bin\Debug\net5.0\Microsoft.AspNetCore.Mvc.NewtonsoftJson.dll
 D:\DotNetCore\BookStoreDotNetApi\BookStoreDotNetApi\bin\Debug\net5.0\Newtonsoft.Json.Bson.dll
+D:\DotNetCore\BookStoreDotNetApi\BookStoreDotNetApi\bin\Debug\net5.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll

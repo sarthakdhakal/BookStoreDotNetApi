@@ -1,25 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BookStoreDotNetApi.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 
 namespace BookStoreDotNetApi.Controllers
 {
-    [Authorize]
+    // [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class UsersController : ControllerBase
     {
         private readonly BookStoresDBContext _context;
+        private readonly JWTSettings _jwtSettings;
 
-        public UsersController(BookStoresDBContext context)
+        public UsersController(BookStoresDBContext context,IOptions<JWTSettings> jwtSettings)
         {
             _context = context;
+            _jwtSettings = jwtSettings.Value;
         }
 
         // GET: api/Users
@@ -54,6 +61,35 @@ namespace BookStoreDotNetApi.Controllers
             }
 
             return user;
+        }
+        
+        [HttpGet("Login")]
+        public async Task<ActionResult<UserWithToken>> Login([FromBody] User user)
+        {
+          
+            user = await _context.Users.Include(u=>u.Job).Where(u => u.UserId == user.UserId && u.Password==u.Password).FirstOrDefaultAsync();
+            UserWithToken userWithToken = new UserWithToken(user);
+            
+            if (userWithToken == null)
+            {
+                return NotFound();
+            }
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes(_jwtSettings.SecretKey);
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new Claim[]
+                {
+                    new Claim(ClaimTypes.Name, user.UserId)
+                }),
+                Expires = DateTime.UtcNow.AddMonths(6),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key),
+                    SecurityAlgorithms.HmacSha256Signature)
+            };
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            userWithToken.Token = tokenHandler.WriteToken(token);
+            return userWithToken;
         }
         // PUT: api/Users/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
