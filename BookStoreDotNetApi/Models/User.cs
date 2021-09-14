@@ -7,6 +7,11 @@ namespace BookStoreDotNetApi.Models
 {
     public partial class User
     {
+        public User()
+        {
+            RefreshTokens = new HashSet<RefreshToken>();
+        }
+
         public string UserId { get; set; }
         public string Password { get; set; }
         public string FirstName { get; set; }
@@ -19,5 +24,6 @@ namespace BookStoreDotNetApi.Models
 
         public virtual Job Job { get; set; }
         public virtual Publisher Pub { get; set; }
+        public virtual ICollection<RefreshToken> RefreshTokens { get; set; }
     }
 }

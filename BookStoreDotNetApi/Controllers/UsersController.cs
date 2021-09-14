@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -23,7 +24,7 @@ namespace BookStoreDotNetApi.Controllers
         private readonly BookStoresDBContext _context;
         private readonly JWTSettings _jwtSettings;
 
-        public UsersController(BookStoresDBContext context,IOptions<JWTSettings> jwtSettings)
+        public UsersController(BookStoresDBContext context, IOptions<JWTSettings> jwtSettings)
         {
             _context = context;
             _jwtSettings = jwtSettings.Value;
@@ -49,11 +50,12 @@ namespace BookStoreDotNetApi.Controllers
 
             return user;
         }
+
         [HttpGet("GetUser")]
         public async Task<ActionResult<User>> GetUser()
         {
             string userId = HttpContext.User.Identity.Name;
-            var user = await _context.Users.Where(user => user.UserId == userId ).FirstOrDefaultAsync();
+            var user = await _context.Users.Where(user => user.UserId == userId).FirstOrDefaultAsync();
             user.Password = null;
             if (user == null)
             {
@@ -62,35 +64,108 @@ namespace BookStoreDotNetApi.Controllers
 
             return user;
         }
-        
+
         [HttpGet("Login")]
         public async Task<ActionResult<UserWithToken>> Login([FromBody] User user)
         {
-          
-            user = await _context.Users.Include(u=>u.Job).Where(u => u.UserId == user.UserId && u.Password==u.Password).FirstOrDefaultAsync();
+            user = await _context.Users.Include(u => u.Job)
+                .Where(u => u.UserId == user.UserId && u.Password == u.Password).FirstOrDefaultAsync();
             UserWithToken userWithToken = new UserWithToken(user);
-            
+
+            if (user != null)
+            {
+                RefreshToken refreshToken = GenerateRefreshToken();
+                user.RefreshTokens.Add(refreshToken);
+                await _context.SaveChangesAsync();
+
+                userWithToken = new UserWithToken(user);
+                userWithToken.RefreshToken = refreshToken.Token;
+            }
+
+            {
+            }
             if (userWithToken == null)
             {
                 return NotFound();
             }
 
+            userWithToken.AccessToken = GenerateAccessToken(user.UserId);
+            return userWithToken;
+        }
+
+        [HttpPost("RefreshToken")]
+        public async Task<ActionResult<UserWithToken>> RefreshToken([FromBody] RefreshRequest refreshRequest)
+        {
+            User user = GetUserFromAccessToken(refreshRequest.AccessToken);
+            if (user != null && ValidateRefreshToken(user, refreshRequest.RefreshToken))
+            {
+            }
+
+            return null;
+        }
+
+        private bool ValidateRefreshToken(User user, string refreshRequestRefreshToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        private User GetUserFromAccessToken(string accessToken)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes(_jwtSettings.SecretKey);
+            var tokenValaidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                ClockSkew = TimeSpan.Zero
+            };
+            SecurityToken securityToken;
+            var principle = tokenHandler.ValidateToken(accessToken, tokenValaidationParameters, out securityToken);
+            JwtSecurityToken jwtSecurityToken = securityToken as JwtSecurityToken;
+            if (jwtSecurityToken != null && jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256Signature,
+                StringComparison.InvariantCultureIgnoreCase))
+            {
+                var userId = principle.FindFirst(ClaimTypes.Name)?.Value;
+                var user =_context.Users.Where(u => u.UserId == userId);
+            }
+
+            throw new NotImplementedException();
+        }
+
+        private string GenerateAccessToken(string UserId)
+        {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_jwtSettings.SecretKey);
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new Claim[]
                 {
-                    new Claim(ClaimTypes.Name, user.UserId)
+                    new Claim(ClaimTypes.Name, UserId)
                 }),
-                Expires = DateTime.UtcNow.AddMonths(6),
+                Expires = DateTime.UtcNow.AddSeconds(7),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key),
                     SecurityAlgorithms.HmacSha256Signature)
             };
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            userWithToken.Token = tokenHandler.WriteToken(token);
-            return userWithToken;
+            return tokenHandler.WriteToken(token);
         }
+
+        private RefreshToken GenerateRefreshToken()
+        {
+            RefreshToken refreshToken = new RefreshToken();
+            var randomNumber = new byte[32];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomNumber);
+                refreshToken.Token = Convert.ToBase64String(randomNumber);
+            }
+
+            refreshToken.ExpiryDate = DateTime.UtcNow.AddMonths(6);
+            return refreshToken;
+        }
+
         // PUT: api/Users/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
@@ -144,7 +219,7 @@ namespace BookStoreDotNetApi.Controllers
                 }
             }
 
-            return CreatedAtAction("GetUser", new { id = user.UserId }, user);
+            return CreatedAtAction("GetUser", new {id = user.UserId}, user);
         }
 
         // DELETE: api/Users/5

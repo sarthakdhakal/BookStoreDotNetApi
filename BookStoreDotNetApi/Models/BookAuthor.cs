@@ -10,7 +10,6 @@ namespace BookStoreDotNetApi.Models
         public int AuthorId { get; set; }
         public int BookId { get; set; }
         public byte? AuthorOrder { get; set; }
-        // ReSharper disable once IdentifierTypo
         public int? RoyalityPercentage { get; set; }
 
         public virtual Author Author { get; set; }

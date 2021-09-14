@@ -2,8 +2,8 @@ namespace BookStoreDotNetApi.Models
 {
     public class UserWithToken : User
     {
-        public string Token { get; set; }
-    
+        public string AccessToken { get; set; }
+        public string RefreshToken { get; set; }
 
         public UserWithToken(User user)
         {

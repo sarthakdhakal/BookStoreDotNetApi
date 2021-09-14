@@ -22,6 +22,7 @@ namespace BookStoreDotNetApi.Models
         public virtual DbSet<BookAuthor> BookAuthors { get; set; }
         public virtual DbSet<Job> Jobs { get; set; }
         public virtual DbSet<Publisher> Publishers { get; set; }
+        public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
         public virtual DbSet<Sale> Sales { get; set; }
         public virtual DbSet<Store> Stores { get; set; }
         public virtual DbSet<User> Users { get; set; }
@@ -211,6 +212,37 @@ namespace BookStoreDotNetApi.Models
                     .IsUnicode(false)
                     .HasColumnName("state")
                     .IsFixedLength(true);
+            });
+
+            modelBuilder.Entity<RefreshToken>(entity =>
+            {
+                entity.HasKey(e => e.TokenId);
+
+                entity.ToTable("RefreshToken");
+
+                entity.Property(e => e.TokenId).HasColumnName("token_id");
+
+                entity.Property(e => e.ExpiryDate)
+                    .HasColumnType("datetime")
+                    .HasColumnName("expiry_date");
+
+                entity.Property(e => e.Token)
+                    .IsRequired()
+                    .HasMaxLength(200)
+                    .IsUnicode(false)
+                    .HasColumnName("token");
+
+                entity.Property(e => e.UserId)
+                    .IsRequired()
+                    .HasMaxLength(50)
+                    .IsUnicode(false)
+                    .HasColumnName("user_id");
+
+                entity.HasOne(d => d.User)
+                    .WithMany(p => p.RefreshTokens)
+                    .HasForeignKey(d => d.UserId)
+                    .OnDelete(DeleteBehavior.ClientSetNull)
+                    .HasConstraintName("FK_RefreshToken_User");
             });
 
             modelBuilder.Entity<Sale>(entity =>
